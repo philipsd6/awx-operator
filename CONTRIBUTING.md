@@ -6,13 +6,16 @@ Have questions about this document or anything not covered here? Please file a n
 
 ## Table of contents
 
-* [Things to know prior to submitting code](#things-to-know-prior-to-submitting-code)
-* [Submmiting your Work](#submitting-your-work)
-* [Testing](#testing)
-    * [Testing in Docker](#testing-in-docker)
-    * [Testing in Minikube](#testing-in-minikube)
-* [Generating a bundle](#generating-a-bundle)
-* [Reporting Issues](#reporting-issues)
+- [AWX-Operator Contributing Guidelines](#awx-operator-contributing-guidelines)
+  - [Table of contents](#table-of-contents)
+  - [Things to know prior to submitting code](#things-to-know-prior-to-submitting-code)
+  - [Submmiting your work](#submmiting-your-work)
+  - [Development](#development)
+  - [Testing](#testing)
+      - [Testing in Kind](#testing-in-kind)
+      - [Testing in Minikube](#testing-in-minikube)
+  - [Generating a bundle](#generating-a-bundle)
+  - [Reporting Issues](#reporting-issues)
 
 
 ## Things to know prior to submitting code
@@ -25,13 +28,13 @@ Have questions about this document or anything not covered here? Please file a n
 
 
 ## Submmiting your work
-1. From your fork `devel` branch, create a new brach to stage your changes.
+1. From your fork `devel` branch, create a new branch to stage your changes.
 ```sh
 #> git checkout -b <branch-name>
 ```
 2. Make your changes.
 3. Test your changes according described on the Testing section.
-4. If everylooks looks correct, commit your changes.
+4. If everything looks correct, commit your changes.
 ```sh
 #> git add <FILES>
 #> git commit -m "My message here"
@@ -40,29 +43,33 @@ Have questions about this document or anything not covered here? Please file a n
 
 **Note**: If you have multiple commits, make sure to `squash` your commits into a single commit which will facilitate our release process.
 
-
+## Development
+The development environment consists of running an [`up.sh`](./up.sh) and a [`down.sh`](./down.sh) script, which applies or deletes yaml on the Openshift or K8s cluster you are connected to. See the [development.md](docs/development.md) for information on how to deploy and test changes from your branch.
 
 ## Testing
 
-This Operator includes a [Molecule](https://molecule.readthedocs.io/en/stable/)-based test environment, which can be executed standalone in Docker (e.g. in CI or in a single Docker container anywhere), or inside any kind of Kubernetes cluster (e.g. Minikube).
+This Operator includes a [Molecule](https://ansible.readthedocs.io/projects/molecule/)-based test environment, which can be executed standalone in Docker (e.g. in CI or in a single Docker container anywhere), or inside any kind of Kubernetes cluster (e.g. Minikube).
 
 You need to make sure you have Molecule installed before running the following commands. You can install Molecule with:
 
 ```sh
-#> pip install 'molecule[docker]'
+#> python -m pip install molecule-plugins[docker]
 ```
 
 Running `molecule test` sets up a clean environment, builds the operator, runs all configured tests on an example operator instance, then tears down the environment (at least in the case of Docker).
 
 If you want to actively develop the operator, use `molecule converge`, which does everything but tear down the environment at the end.
 
-#### Testing in Docker
+#### Testing in Kind
+
+Testing with a kind cluster is the recommended way to test the awx-operator locally. First, you need to install kind if you haven't already. Please see these docs for setting that up:
+* https://kind.sigs.k8s.io/docs/user/quick-start/
+
+To run the tests, from the root of your checkout, run the following command:
 
 ```sh
-#> molecule test -s test-local
+#> molecule test -s kind
 ```
-
-This environment is meant for headless testing (e.g. in a CI environment, or when making smaller changes which don't need to be verified through a web interface). It is difficult to test things like AWX's web UI or to connect other applications on your local machine to the services running inside the cluster, since it is inside a Docker container with no static IP address.
 
 #### Testing in Minikube
 

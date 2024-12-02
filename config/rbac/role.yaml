@@ -20,7 +20,6 @@ rules:
       - watch
   - apiGroups:
       - ""
-      - "rbac.authorization.k8s.io"
     resources:
       - pods
       - services
@@ -31,6 +30,17 @@ rules:
       - events
       - configmaps
       - secrets
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - "rbac.authorization.k8s.io"
+    resources:
       - roles
       - rolebindings
     verbs:
@@ -43,18 +53,40 @@ rules:
       - watch
   - apiGroups:
       - apps
-      - networking.k8s.io
     resources:
       - deployments
       - daemonsets
       - replicasets
       - statefulsets
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
       - ingresses
     verbs:
       - get
       - list
       - create
       - delete
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+      - jobs
+    verbs:
+      - get
+      - list
+      - create
       - patch
       - update
       - watch
@@ -104,3 +136,16 @@ rules:
       - awxrestores
     verbs:
       - '*'
+  - apiGroups:
+      - traefik.containo.us
+      - traefik.io
+    resources:
+      - ingressroutetcps
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - patch
+      - update
+      - watch

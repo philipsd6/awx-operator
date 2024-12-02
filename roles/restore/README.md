@@ -19,7 +19,7 @@ This role assumes you are authenticated with an Openshift or Kubernetes cluster:
 
 *Before Restoring from a backup*, be sure to:
   - delete the old existing AWX CR
-  - delete the persistent volume claim (PVC) for the database from the old deployment, which has a name like `postgres-13-<deployment-name>-postgres-13-0`
+  - delete the persistent volume claim (PVC) for the database from the old deployment, which has a name like `postgres-<postgres version>-<deployment-name>-postgres-<postgres version>-0`
 
 **Note**: Do not delete the namespace/project, as that will delete the backup and the backup's PVC as well.
 
@@ -99,6 +99,12 @@ If the awxbackup object no longer exists, it is still possible to restore from t
 ```
 backup_pvc: myoldtower-backup-claim
 backup_dir: /backups/tower-openshift-backup-2021-04-02-03:25:08
+```
+
+Variable to define Pull policy.You can pass other options like `Always`, `always`, `Never`, `never`, `IfNotPresent`, `ifnotpresent`.
+
+```
+image_pull_policy: 'IfNotPresent'
 ```
 
 Variable to define resources limits and request for restore CR.

@@ -4,15 +4,9 @@
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= $(shell git describe --tags)
+PREV_VERSION ?= $(shell git describe --abbrev=0 --tags $(shell git rev-list --tags --skip=1 --max-count=1))
 
 CONTAINER_CMD ?= docker
-
-# GNU vs BSD in-place sed
-ifeq ($(shell sed --version 2>/dev/null | grep -q GNU && echo gnu),gnu)
-	SED_I := sed -i
-else
-	SED_I := sed -i ''
-endif
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -59,14 +53,6 @@ endif
 IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 NAMESPACE ?= awx
 
-# Helm variables
-CHART_NAME ?= awx-operator
-CHART_DESCRIPTION ?= A Helm chart for the AWX Operator
-CHART_OWNER ?= $(GH_REPO_OWNER)
-CHART_REPO ?= awx-operator
-CHART_BRANCH ?= gh-pages
-CHART_INDEX ?= index.yaml
-
 .PHONY: all
 all: docker-build
 
@@ -87,6 +73,10 @@ all: docker-build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+.PHONY: print-%
+print-%: ## Print any variable from the Makefile. Use as `make print-VARIABLE`
+	@echo $($*)
+
 ##@ Build
 
 .PHONY: run
@@ -100,6 +90,21 @@ docker-build: ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	${CONTAINER_CMD} push ${IMG}
+
+# PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
+# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
+# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> than the export will fail)
+# To properly provided solutions that supports more than one platform you should use this option.
+PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+.PHONY: docker-buildx
+docker-buildx: ## Build and push docker image for the manager for cross-platform support
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push $(BUILD_ARGS) --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile .
+	- docker buildx rm project-v3-builder
+
 
 ##@ Deployment
 
@@ -140,11 +145,27 @@ ifeq (,$(shell which kustomize 2>/dev/null))
 	@{ \
 	set -e ;\
 	mkdir -p $(dir $(KUSTOMIZE)) ;\
-	curl -sSLo - https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v4.5.7/kustomize_v4.5.7_$(OS)_$(ARCHA).tar.gz | \
+	curl -sSLo - https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.0.1/kustomize_v5.0.1_$(OS)_$(ARCHA).tar.gz | \
 	tar xzf - -C bin/ ;\
 	}
 else
 KUSTOMIZE = $(shell which kustomize)
+endif
+endif
+
+.PHONY: operator-sdk
+OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+operator-sdk: ## Download operator-sdk locally if necessary, preferring the $(pwd)/bin path over global if both exist.
+ifeq (,$(wildcard $(OPERATOR_SDK)))
+ifeq (,$(shell which operator-sdk 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(OPERATOR_SDK)) ;\
+	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.34.2/operator-sdk_$(OS)_$(ARCHA) ;\
+	chmod +x $(OPERATOR_SDK) ;\
+	}
+else
+OPERATOR_SDK = $(shell which operator-sdk)
 endif
 endif
 
@@ -156,7 +177,7 @@ ifeq (,$(shell which ansible-operator 2>/dev/null))
 	@{ \
 	set -e ;\
 	mkdir -p $(dir $(ANSIBLE_OPERATOR)) ;\
-	curl -sSLo $(ANSIBLE_OPERATOR) https://github.com/operator-framework/operator-sdk/releases/download/v1.25.3/ansible-operator_$(OS)_$(ARCHA) ;\
+	curl -sSLo $(ANSIBLE_OPERATOR) https://github.com/operator-framework/ansible-operator-plugins/releases/download/v1.34.0/ansible-operator_$(OS)_$(ARCHA) ;\
 	chmod +x $(ANSIBLE_OPERATOR) ;\
 	}
 else
@@ -165,11 +186,11 @@ endif
 endif
 
 .PHONY: bundle
-bundle: kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
+bundle: kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
@@ -187,7 +208,7 @@ ifeq (,$(shell which opm 2>/dev/null))
 	@{ \
 	set -e ;\
 	mkdir -p $(dir $(OPM)) ;\
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.25.3/$(OS)-$(ARCHA)-opm ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.26.0/$(OS)-$(ARCHA)-opm ;\
 	chmod +x $(OPM) ;\
 	}
 else
@@ -218,185 +239,3 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
-
-.PHONY: kubectl-slice
-KUBECTL_SLICE = $(shell pwd)/bin/kubectl-slice
-kubectl-slice: ## Download kubectl-slice locally if necessary.
-ifeq (,$(wildcard $(KUBECTL_SLICE)))
-ifeq (,$(shell which kubectl-slice 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(KUBECTL_SLICE)) ;\
-	curl -sSLo - https://github.com/patrickdappollonio/kubectl-slice/releases/download/v1.1.0/kubectl-slice_1.1.0_$(OS)_$(ARCHX).tar.gz | \
-	tar xzf - -C bin/ kubectl-slice ;\
-	}
-else
-KUBECTL_SLICE = $(shell which kubectl-slice)
-endif
-endif
-
-.PHONY: helm
-HELM = $(shell pwd)/bin/helm
-helm: ## Download helm locally if necessary.
-ifeq (,$(wildcard $(HELM)))
-ifeq (,$(shell which helm 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(HELM)) ;\
-	curl -sSLo - https://get.helm.sh/helm-v3.8.0-$(OS)-$(ARCHA).tar.gz | \
-	tar xzf - -C bin/ $(OS)-$(ARCHA)/helm ;\
-	mv bin/$(OS)-$(ARCHA)/helm bin/helm ;\
-	rmdir bin/$(OS)-$(ARCHA) ;\
-	}
-else
-HELM = $(shell which helm)
-endif
-endif
-
-.PHONY: yq
-YQ = $(shell pwd)/bin/yq
-yq: ## Download yq locally if necessary.
-ifeq (,$(wildcard $(YQ)))
-ifeq (,$(shell which yq 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(HELM)) ;\
-	curl -sSLo - https://github.com/mikefarah/yq/releases/download/v4.20.2/yq_$(OS)_$(ARCHA).tar.gz | \
-	tar xzf - -C bin/ ;\
-	mv bin/yq_$(OS)_$(ARCHA) bin/yq ;\
-	}
-else
-YQ = $(shell which yq)
-endif
-endif
-
-PHONY: cr
-CR = $(shell pwd)/bin/cr
-cr: ## Download cr locally if necessary.
-ifeq (,$(wildcard $(CR)))
-ifeq (,$(shell which cr 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(CR)) ;\
-	curl -sSLo - https://github.com/helm/chart-releaser/releases/download/v1.3.0/chart-releaser_1.3.0_$(OS)_$(ARCHA).tar.gz | \
-	tar xzf - -C bin/ cr ;\
-	}
-else
-CR = $(shell which cr)
-endif
-endif
-
-charts:
-	mkdir -p $@
-
-.PHONY: helm-chart
-helm-chart: helm-chart-generate
-
-.PHONY: helm-chart-generate
-helm-chart-generate: kustomize helm kubectl-slice yq charts
-	@echo "== KUSTOMIZE: Set image and chart label =="
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	cd config/manager && $(KUSTOMIZE) edit set label helm.sh/chart:$(CHART_NAME)
-	cd config/default && $(KUSTOMIZE) edit set label helm.sh/chart:$(CHART_NAME)
-
-	@echo "== Gather Helm Chart Metadata =="
-	# remove the existing chart if it exists
-	rm -rf charts/$(CHART_NAME)
-	# create new chart metadata in Chart.yaml
-	cd charts && \
-		$(HELM) create awx-operator --starter $(shell pwd)/.helm/starter ;\
-		$(YQ) -i '.version = "$(VERSION)"' $(CHART_NAME)/Chart.yaml ;\
-		$(YQ) -i '.appVersion = "$(VERSION)" | .appVersion style="double"' $(CHART_NAME)/Chart.yaml ;\
-		$(YQ) -i '.description = "$(CHART_DESCRIPTION)"' $(CHART_NAME)/Chart.yaml ;\
-
-	@echo "Generated chart metadata:"
-	@cat charts/$(CHART_NAME)/Chart.yaml
-
-	@echo "== KUSTOMIZE: Generate resources and slice into templates =="
-	# place in raw-files directory so they can be modified while they are valid yaml - as soon as they are in templates/,
-	# wild cards pick up the actual templates, which are not real yaml and can't have yq run on them.
-	$(KUSTOMIZE) build --load-restrictor LoadRestrictionsNone config/default | \
-		$(KUBECTL_SLICE) --input-file=- \
-			--output-dir=charts/$(CHART_NAME)/raw-files \
-			--sort-by-kind
-
-	@echo "== GIT: Reset kustomize configs =="
-	# reset kustomize configs following kustomize build
-	git checkout -f config/.
-
-	@echo "== Build Templates and CRDS =="
-	# Delete metadata.namespace, release namespace will be automatically inserted by helm
-	for file in charts/$(CHART_NAME)/raw-files/*; do\
-		$(YQ) -i 'del(.metadata.namespace)' $${file};\
-	done
-	# Correct namespace for rolebinding to be release namespace, this must be explicit
-	for file in charts/$(CHART_NAME)/raw-files/*rolebinding*; do\
-		$(YQ) -i '.subjects[0].namespace = "{{ .Release.Namespace }}"' $${file};\
-	done
-	# move all custom resource definitions to crds folder
-	mkdir charts/$(CHART_NAME)/crds
-	mv charts/$(CHART_NAME)/raw-files/customresourcedefinition*.yaml charts/$(CHART_NAME)/crds/.
-	# remove any namespace definitions
-	rm -f charts/$(CHART_NAME)/raw-files/namespace*.yaml
-	# move remaining resources to helm templates
-	mv charts/$(CHART_NAME)/raw-files/* charts/$(CHART_NAME)/templates/.
-	# remove the raw-files folder
-	rm -rf charts/$(CHART_NAME)/raw-files
-
-	# create and populate NOTES.txt
-	@echo "AWX Operator installed with Helm Chart version $(VERSION)" > charts/$(CHART_NAME)/templates/NOTES.txt
-
-	@echo "Helm chart successfully configured for $(CHART_NAME) version $(VERSION)"
-
-
-.PHONY: helm-package
-helm-package: helm-chart
-	@echo "== Package Current Chart Version =="
-	mkdir -p .cr-release-packages
-	# package the chart and put it in .cr-release-packages dir
-	$(HELM) package ./charts/awx-operator -d .cr-release-packages
-
-# List all tags oldest to newest.
-TAGS := $(shell git ls-remote --tags --sort=version:refname --refs -q | cut -d/ -f3)
-
-# The actual release happens in ansible/helm-release.yml, which calls this targer
-# until https://github.com/helm/chart-releaser/issues/122 happens, chart-releaser is not ideal for a chart
-# that is contained within a larger repo, where a tag may not require a new chart version
-.PHONY: helm-index
-helm-index:
-	# when running in CI this gh-pages are already checked out with github action to 'gh-pages' directory
-	# TODO: test if gh-pages directory exists and if not exist
-
-	@echo "== GENERATE INDEX FILE =="
-	# This step to workaround issues with old releases being dropped.
-	# Until https://github.com/helm/chart-releaser/issues/133 happens
-	@echo "== CHART FETCH previous releases =="
-	# Download all old releases
-	mkdir -p .cr-release-packages
-
-	for tag in $(TAGS); do\
-		dl_url="https://github.com/$(CHART_OWNER)/$(CHART_REPO)/releases/download/$${tag}/$(CHART_REPO)-$${tag}.tgz";\
-		echo "Downloading $${tag} from $${dl_url}";\
-		curl -RLOs -z "$(CHART_REPO)-$${tag}.tgz" --fail $${dl_url};\
-		result=$$?;\
-		if [ $${result} -eq 0 ]; then\
-			echo "Downloaded $${dl_url}";\
-			mv ./$(CHART_REPO)-$${tag}.tgz .cr-release-packages/;\
-		else\
-			echo "Skipping release $${tag}; No helm chart present";\
-			rm -rf ".cr-release-packages/$(CHART_REPO)-$${tag}.tgz";\
-		fi;\
-	done;\
-
-	# generate the index file in the root of the gh-pages branch
-	# --merge will leave any values in index.yaml that don't get generated by this command, but
-	# it is likely that all values are overridden
-	$(HELM) repo index .cr-release-packages --url https://$(CHART_OWNER).github.io/awx-operator/ --merge gh-pages/index.yaml
-
-	mv .cr-release-packages/index.yaml gh-pages/index.yaml
-
-	@echo "== PUSH INDEX FILE =="
-	cd gh-pages;\
-	git add index.yaml;\
-	git commit -m "Updated index.yaml latest release";\
-	git push;\

@@ -6,7 +6,7 @@ ignore: |
   kustomization.yaml
   awx-operator.clusterserviceversion.yaml
   bundle
-  .helm/starter
+  hacking/
 
 rules:
   truthy: disable
