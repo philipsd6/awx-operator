@@ -47,12 +47,23 @@
 - name: Retrieve instance version
   k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
-    pod: "{{ tower_pod_name }}"
-    container: "{{ ansible_operator_meta.name }}-task"
+    pod: "{{ awx_web_pod_name }}"
+    container: "{{ ansible_operator_meta.name }}-web"
     command: >-
       bash -c "awx-manage --version"
   register: instance_version
   changed_when: false
+  when: awx_web_pod_name != ''
+
+- name: Update upgradedFrom status
+  operator_sdk.util.k8s_status:
+    api_version: '{{ api_version }}'
+    kind: "{{ kind }}"
+    name: "{{ ansible_operator_meta.name }}"
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    status:
+      upgradedFrom: "{{ upgraded_from }}"
+  when: upgraded_from is defined
 
 - name: Update version status
   operator_sdk.util.k8s_status:
@@ -62,6 +73,7 @@
     namespace: "{{ ansible_operator_meta.namespace }}"
     status:
       version: "{{ instance_version.stdout | trim }}"
+  when: instance_version is not skipped
 
 - name: Update image status
   operator_sdk.util.k8s_status:
@@ -109,5 +121,5 @@
     name: "{{ ansible_operator_meta.name }}"
     namespace: "{{ ansible_operator_meta.namespace }}"
     status:
-      upgradedPostgresVersion: "{{ upgraded_postgres_version }}"
+      upgradedPostgresVersion: "{{ upgraded_postgres_version | string }}"
   when: upgraded_postgres_version is defined

@@ -39,6 +39,7 @@ spec:
         - --leader-elect
         - --leader-election-id=awx-operator
         image: controller:latest
+        imagePullPolicy: IfNotPresent
         name: awx-manager
         env:
         - name: ANSIBLE_GATHERING
@@ -51,7 +52,6 @@ spec:
               fieldPath: metadata.namespace
         securityContext:
           allowPrivilegeEscalation: false
-        # TODO(user): uncomment for common cases that do not require escalating privileges
           capabilities:
             drop:
             - "ALL"
@@ -73,7 +73,7 @@ spec:
             memory: "32Mi"
             cpu: "50m"
           limits:
-            memory: "4096Mi"
+            memory: "4000Mi"
             cpu: "2000m"
       serviceAccountName: controller-manager
       imagePullSecrets:

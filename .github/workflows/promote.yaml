@@ -3,45 +3,70 @@ name: Promote AWX Operator image
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Name for the tag of the release.'
+        required: true
+      quay_registry:
+        description: 'Quay registry to push to.'
+        default: 'quay.io/ansible'
+
+env:
+  QUAY_REGISTRY: ${{ vars.QUAY_REGISTRY }}
 
 jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Set GitHub Env vars for workflow_dispatch event
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+          echo "QUAY_REGISTRY=${{ github.event.inputs.quay_registry }}" >> $GITHUB_ENV
+
+      - name: Set GitHub Env vars if release event
+        if: ${{ github.event_name == 'release' }}
+        run: |
+          echo "TAG_NAME=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Fail if QUAY_REGISTRY not set
+        run: |
+          if [[ -z "${{ env.QUAY_REGISTRY }}" ]]; then
+            echo "QUAY_REGISTRY not set. Please set QUAY_REGISTRY in variable GitHub Actions variables."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
         with:
           depth: 0
 
-      - uses: actions/checkout@v3
+
+      - name: Log into registry ghcr.io
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567    # v3.3.0
         with:
-          ref: gh-pages
-          path: gh-pages
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to GHCR
-        run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Log in to Quay
-        run: |
-          echo ${{ secrets.QUAY_TOKEN }} | docker login quay.io -u ${{ secrets.QUAY_USER }} --password-stdin
+      - name: Log into registry quay.io
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567    # v3.3.0
+        with:
+          registry: ${{ env.QUAY_REGISTRY }}
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_TOKEN }}
 
-      - name: Re-tag and promote awx-operator image
-        run: |
-          docker pull ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
-          docker tag ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }} quay.io/${{ github.repository }}:${{ github.event.release.tag_name }}
-          docker tag ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }} quay.io/${{ github.repository }}:latest
-          docker push quay.io/${{ github.repository }}:${{ github.event.release.tag_name }}
-          docker push quay.io/${{ github.repository }}:latest
 
-      - name: Configure git
+      - name: Pull Tagged Staged Image and Publish to quay.io
         run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          docker buildx imagetools create \
+            ghcr.io/${{ github.repository }}:${{ env.TAG_NAME }} \
+            --tag ${{ env.QUAY_REGISTRY }}/awx-operator:${{ env.TAG_NAME }}
 
-      - name: Release Helm chart
+
+      - name: Pull Staged Image and Publish to quay.io/${{ github.repository }}:latest
         run: |
-          ansible-playbook ansible/helm-release.yml -v \
-            -e operator_image=quay.io/${{ github.repository }} \
-            -e chart_owner=${{ github.repository_owner }} \
-            -e tag=${{ github.event.release.tag_name }} \
-            -e gh_token=${{ secrets.GITHUB_TOKEN }}
+          docker buildx imagetools create \
+            ghcr.io/${{ github.repository }}:${{ env.TAG_NAME }} \
+            --tag ${{ env.QUAY_REGISTRY }}/awx-operator:latest

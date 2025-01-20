@@ -34,7 +34,7 @@
         backup_pvc: "{{ this_backup['resources'][0]['status']['backupClaim'] }}"
         backup_dir: "{{ this_backup['resources'][0]['status']['backupDirectory'] }}"
   when:
-    - backup_name != '' or backup_name is defined
+    - backup_name is defined and backup_name != ''
 
 # Check to make sure provided pvc exists, error loudly if not.  Otherwise, the management pod will just stay in pending state forever.
 - name: Check provided PVC exists
@@ -86,10 +86,10 @@
   set_fact:
     _postgres_image: "{{ _custom_postgres_image | default(lookup('env', 'RELATED_IMAGE_AWX_POSTGRES'))  | default(_default_postgres_image, true) }}"
 
-- name: Create management pod from templated deployment config
+- name: Create management pod from the template
   k8s:
     name: "{{ ansible_operator_meta.name }}-db-management"
-    kind: Deployment
+    kind: Pod
     state: present
     definition: "{{ lookup('template', 'management-pod.yml.j2') }}"
     wait: true
@@ -98,6 +98,7 @@
   k8s_exec:
     namespace: "{{ backup_pvc_namespace }}"
     pod: "{{ ansible_operator_meta.name }}-db-management"
+    container: "{{ ansible_operator_meta.name }}-db-management"
     command: >-
       bash -c "stat {{ backup_dir }}"
   register: stat_backup_dir

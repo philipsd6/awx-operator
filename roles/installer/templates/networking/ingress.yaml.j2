@@ -8,20 +8,23 @@ metadata:
   name: '{{ ansible_operator_meta.name }}-ingress'
   namespace: '{{ ansible_operator_meta.namespace }}'
   labels:
-    app.kubernetes.io/name: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/part-of: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/managed-by: '{{ deployment_type }}-operator'
-    app.kubernetes.io/component: '{{ deployment_type }}'
-    app.kubernetes.io/operator-version: '{{ lookup("env", "OPERATOR_VERSION") }}'
-{% if ingress_annotations %}
+    {{ lookup("template", "../common/templates/labels/common.yaml.j2") | indent(width=4) | trim }}
+{% if ingress_annotations or ingress_controller|lower == "contour" %}
   annotations:
+{% if ingress_annotations %}
     {{ ingress_annotations | indent(width=4) }}
+{% endif %}
+{% if ingress_controller|lower == "contour" %}
+    projectcontour.io/websocket-routes: "/websocket"
+    kubernetes.io/ingress.class: contour
+{% endif %}
 {% endif %}
 spec:
 {% if ingress_class_name %}
   ingressClassName: '{{ ingress_class_name }}'
 {% endif %}
   rules:
+{% if not ingress_hosts %}
     - http:
         paths:
           - path: '{{ ingress_path }}'
@@ -31,14 +34,55 @@ spec:
                 name: '{{ ansible_operator_meta.name }}-service'
                 port:
                   number: 80
-{% if hostname %}      
+{% if hostname %}
       host: {{ hostname }}
-{% endif %}      
+{% endif %}
+{% if ingress_controller|lower == "contour" %}
+          - path: '{{ ingress_path.rstrip("/") }}/websocket'
+            pathType: '{{ ingress_path_type }}'
+            backend:
+              service:
+                name: '{{ ansible_operator_meta.name }}-service'
+                port:
+                  number: 80
+{% endif %}
 {% if ingress_tls_secret %}
   tls:
     - hosts:
-        - {{ hostname }}
+      - {{ hostname }}
       secretName: {{ ingress_tls_secret }}
+{% endif %}
+{% endif %}
+{% if ingress_hosts %}
+{% for item in ingress_hosts %}
+    - host: {{ item.hostname }}
+      http:
+        paths:
+          - path: '{{ ingress_path }}'
+            pathType: '{{ ingress_path_type }}'
+            backend:
+              service:
+                name: '{{ ansible_operator_meta.name }}-service'
+                port:
+                  number: 80
+{% if ingress_controller|lower == "contour" %}
+          - path: '{{ ingress_path.rstrip("/") }}/websocket'
+            pathType: '{{ ingress_path_type }}'
+            backend:
+              service:
+                name: '{{ ansible_operator_meta.name }}-service'
+                port:
+                  number: 80
+{% endif %}
+{% endfor %}
+  tls:
+{% for item in ingress_hosts %}
+{% if 'tls_secret' in item %}
+    - hosts:
+      - {{ item.hostname }}
+      secretName: {{ item.tls_secret }}
+{% endif %}
+{% endfor %}
 {% endif %}
 {% endif %}
 
@@ -52,11 +96,7 @@ metadata:
   name: '{{ ansible_operator_meta.name }}'
   namespace: '{{ ansible_operator_meta.namespace }}'
   labels:
-    app.kubernetes.io/name: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/part-of: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/managed-by: '{{ deployment_type }}-operator'
-    app.kubernetes.io/component: '{{ deployment_type }}'
-    app.kubernetes.io/operator-version: '{{ lookup("env", "OPERATOR_VERSION") }}'
+    {{ lookup("template", "../common/templates/labels/common.yaml.j2") | indent(width=4) | trim }}
 spec:
 {% if route_host != '' %}
   host: {{ route_host }}

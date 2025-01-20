@@ -90,10 +90,33 @@ spec:
               postgres_image_version:
                 description: PostgreSQL container image version to use
                 type: string
+              precreate_partition_hours:
+                description: Number of hours worth of events table partitions to precreate before backup to avoid pg_dump locks.
+                type: integer
+                format: int32
+              image_pull_policy:
+                description: The image pull policy
+                type: string
+                default: IfNotPresent
+                enum:
+                - Always
+                - always
+                - Never
+                - never
+                - IfNotPresent
+                - ifnotpresent
+              db_management_pod_node_selector:
+                description: nodeSelector for the Postgres pods to backup
+                type: string
               no_log:
                 description: Configure no_log for no_log tasks
                 type: boolean
                 default: true
+              additional_labels:
+                description: Additional labels defined on the resource, which should be propagated to child resources
+                type: array
+                items:
+                  type: string
               set_self_labels:
                 description: Maintain some of the recommended `app.kubernetes.io/*` labels on the resource (self)
                 type: boolean

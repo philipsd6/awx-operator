@@ -10,12 +10,85 @@ metadata:
     description: AWX provides a web-based user interface, REST API, and task engine
       built on top of Ansible.
     repository: https://github.com/ansible/awx-operator
+    support: forum.ansible.com
   name: awx-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: Deploy a instance of AWX Mesh ingress to allow inbound connection
+        to the AWX Receptor Mesh.
+      displayName: AWX Mesh Ingress
+      kind: AWXMeshIngress
+      name: awxmeshingresses.awx.ansible.com
+      specDescriptors:
+      - displayName: Deployment Name
+        path: deployment_name
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: External Hostname
+        path: external_hostname
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: External IP Address
+        path: external_ipaddress
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Ingress Type
+        path: ingress_type
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:none
+        - urn:alm:descriptor:com.tectonic.ui:select:Ingress
+        - urn:alm:descriptor:com.tectonic.ui:select:IngressRouteTCP
+        - urn:alm:descriptor:com.tectonic.ui:select:Route
+      - displayName: Ingress API Version
+        path: ingress_api_version
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Ingress Annotations
+        path: ingress_annotations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Ingress Class Name
+        path: ingress_class_name
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Ingress Controller
+        path: ingress_controller
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Node Selector
+        path: node_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Tolerations
+        path: tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Topology Spread Constraints
+        path: topology_spread_constraints
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Affinity
+        path: affinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Optional API URLPATTERN Prefix
+        path: api_urlpattern_prefix
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Image Pull Secrets
+        path: image_pull_secrets
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:io.kubernetes:Secret
+      version: v1alpha1
     - description: Back up a deployment of the awx, including jobs, inventories, and
         credentials
       displayName: AWX Backup
@@ -48,10 +121,21 @@ spec:
       - displayName: Backup PVC Storage Class
         path: backup_storage_class
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:io.kubernetes:StorageClass
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Precreate Partition Hours
+        path: precreate_partition_hours
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Database Backup Label Selector
         path: postgres_label_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: PostgreSQL Security Context Settings
+        path: postgres_security_context_settings
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -65,11 +149,36 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Image Pull Policy
+        path: image_pull_policy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
       - displayName: No Log Configuration
         path: no_log
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Set default labels on AWX resource?
+        path: set_self_labels
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Additional labels defined on the resource, which should be propagated
+          to child resources
+        path: additional_labels
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Node Selector for backup management pod
+        path: db_management_pod_node_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Public Base URL
+        path: public_base_url
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       statusDescriptors:
       - description: Persistent volume claim name used during backup
         displayName: Backup Claim
@@ -88,10 +197,10 @@ spec:
       kind: AWXRestore
       name: awxrestores.awx.ansible.com
       specDescriptors:
-      - displayName: Backup Source to restore from
-        description: Select what type of backup to specify. Backup CR, allows you to specify
-          the name of an AWXBackup object (recommended approach).  The PVC option allows you to
-          specify a custom PVC and directory to backup from.
+      - description: Select what type of backup to specify. Backup CR, allows you
+          to specify the name of an AWXBackup object (recommended approach).  The
+          PVC option allows you to specify a custom PVC and directory to backup from.
+        displayName: Backup Source to restore from
         path: backup_source
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:Backup CR
@@ -115,8 +224,9 @@ spec:
         path: backup_pvc_namespace
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - displayName: Backup Directory
-        description: This is the directory inside the PVC that your backup is stored in.
+      - description: This is the directory inside the PVC that your backup is stored
+          in.
+        displayName: Backup Directory
         path: backup_dir
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
@@ -134,6 +244,15 @@ spec:
         path: postgres_image_version
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: AWX Spec Overrides
+        path: spec_overrides
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Image Pull Policy
+        path: image_pull_policy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
       - displayName: Restore Management Pod Resource Requirements
         path: restore_resource_requirements
         x-descriptors:
@@ -144,6 +263,25 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Set default labels on AWX resource?
+        path: set_self_labels
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Additional labels defined on the resource, which should be propagated
+          to child resources
+        path: additional_labels
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Node Selector for backup management pod
+        path: db_management_pod_node_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - displayName: Force drop database before restore
+        path: force_drop_db
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       statusDescriptors:
       - description: The state of the restore
         displayName: Restore Status
@@ -151,12 +289,13 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       version: v1beta1
-    - description: Deploy a new instance of AWX
+    - description: Deploy a new instance of AWX. A standardized way to define, operate
+        and scale automation with Ansible.
       displayName: AWX
       kind: AWX
       name: awxs.awx.ansible.com
       specDescriptors:
-      - displayName: Hostname
+      - displayName: Hostname (Deprecated)
         path: hostname
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
@@ -186,8 +325,14 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:io.kubernetes:Secret
-      - displayName: Secret Key
-        description: Name of the k8s secret the symmetric encryption key is stored in.
+      - description: PostgreSQL dump additional parameters to exclude tables during migration to openshift
+        displayname: PostgreSQL Extra Arguments for Migration to Openshift
+        path: pg_dump_suffix
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Name of the k8s secret the symmetric encryption key is stored
+          in.
+        displayName: Secret Key
         path: secret_key_secret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
@@ -226,7 +371,7 @@ spec:
         path: ingress_api_version
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-        - urn:alm:descriptor:com.tectonic.ui:text 
+        - urn:alm:descriptor:com.tectonic.ui:text
       - displayName: Ingress Path
         path: ingress_path
         x-descriptors:
@@ -245,11 +390,22 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:text
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:ingress_type:Ingress
-      - displayName: Ingress TLS Secret
+      - displayName: Ingress TLS Secret (Deprecated)
         path: ingress_tls_secret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:ingress_type:Ingress
+      - displayName: Ingress Hosts
+        path: ingress_hosts
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - displayName: Ingress Controller
+        path: ingress_controller
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:ingress_type:Ingress
       - displayName: LoadBalancer Annotations
         path: service_annotations
@@ -269,6 +425,18 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:service_type:LoadBalancer
+      - displayName: LoadBalancer IP
+        path: loadbalancer_ip
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:string
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:service_type:LoadBalancer
+      - displayName: LoadBalancer Class
+        path: loadbalancer_class
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:string
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:service_type:LoadBalancer
       - displayName: Route API Version
         path: route_api_version
@@ -308,6 +476,11 @@ spec:
         path: image_pull_secret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: HostAliases for app containers
+        path: host_aliases
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
       - displayName: Web Container Resource Requirements
         path: web_resource_requirements
         x-descriptors:
@@ -323,34 +496,96 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: PostgreSQL Init Container Resource Requirements
-        description: The PostgreSQL init container is not used when an external DB
-          is configured
+      - description: Sets permissions on the /var/lib/pgsql/data for postgres container using an init container (not Openshift)
+        displayName: PostgreSQL initialize data volume
+        path: postgres_data_volume_init
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Customize the postgres init container commands (Non Openshift)
+        displayName: PostgreSQL Init Container Commands
+        path: postgres_init_container_commands
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: (Deprecated, use postgres_resource_requirements parameter instead)
+        displayName: PostgreSQL Init Container Resource Requirements
         path: postgres_init_container_resource_requirements
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - displayName: Redis Container Resource Requirements
         path: redis_resource_requirements
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: PostgreSQL Container Resource Requirements
-        description: The PostgreSQL container is not used when an external DB
-          is configured
+      - displayName: Rsyslog Container Resource Requirements
+        path: rsyslog_resource_requirements
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: The PostgreSQL container is not used when an external DB is configured
+        displayName: PostgreSQL Container Resource Requirements
         path: postgres_resource_requirements
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - displayName: PostgreSQL Container Storage Requirements
-        description: The PostgreSQL container is not used when an external DB
-          is configured
+      - description: The PostgreSQL container is not used when an external DB is configured
+        displayName: PostgreSQL Container Storage Requirements
         path: postgres_storage_requirements
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Init Container resource requirements
+        path: init_container_resource_requirements
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - displayName: Replicas
         path: replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - displayName: Web Replicas
+        path: web_replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - displayName: Uwsgi Listen Queue Length
+        path: uwsgi_listen_queue_size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Uwsgi Processes
+        path: uwsgi_processes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: NGINX Worker Processes
+        path: nginx_worker_processes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: NGINX Worker Connections
+        path: nginx_worker_connections
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: NGINX Worker Process CPU Affinity
+        path: nginx_worker_cpu_affinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:string
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: NGINX Listen Queue Length
+        path: nginx_listen_queue_size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Replicas
+        path: task_replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:number
@@ -449,15 +684,42 @@ spec:
       - displayName: Postgres Storage Class
         path: postgres_storage_class
         x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:StorageClass
         - urn:alm:descriptor:com.tectonic.ui:advanced
-        - urn:alm:descriptor:com.tectonic.ui:hidden
-      - displayName: Postgres Datapath
-        path: postgres_data_path
+      - displayName: Postgres Extra Arguments
+        path: postgres_extra_args
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - displayName: Postgres Extra Arguments
-        path: postgres_extra_args
+      - description: Specify extra volumes to add to the postgres pod
+        displayName: Postgres Extra Volumes
+        path: postgres_extra_volumes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Specify volume mounts to be added to Postgres container
+        displayName: Postgres Extra Volume Mounts
+        path: postgres_extra_volume_mounts
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Enable Postgres Keepalives
+        path: postgres_keepalives
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Postgres Keepalives Count
+        path: postgres_keepalives_count
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Postgres Keepalives Idle
+        path: postgres_keepalives_idle
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Postgres Keepalives Interval
+        path: postgres_keepalives_interval
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -466,12 +728,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - displayName: LDAP Certificate Authority Trust Bundle
+      - displayName: LDAP Certificate Authority Trust Bundle (Deprecated)
         path: ldap_cacert_secret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:io.kubernetes:Secret
-      - displayName: LDAP Password Secret
+      - displayName: LDAP Password Secret (Deprecated)
         path: ldap_password_secret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
@@ -506,7 +768,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:projects_use_existing_claim:_No_
-        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:io.kubernetes:StorageClass
       - description: Projects Storage Size
         displayName: Projects Storage Size
         path: projects_storage_size
@@ -591,6 +853,28 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Rsyslog Args
+        path: rsyslog_args
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Rsyslog Command
+        path: rsyslog_command
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Environment variables to be added to Rsyslog container
+        displayName: Rsyslog Extra Env
+        path: rsyslog_extra_env
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Specify volume mounts to be added to Rsyslog container
+        displayName: Rsyslog Extra Volume Mounts
+        path: rsyslog_extra_volume_mounts
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Specify extra volumes to add to the application pod
         displayName: Extra Volumes
         path: extra_volumes
@@ -602,13 +886,43 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Web Node Selector
+        path: web_node_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Node Selector
+        path: task_node_selector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Topology Spread Constraints
         path: topology_spread_constraints
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Web Topology Spread Constraints
+        path: web_topology_spread_constraints
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Topology Spread Constraints
+        path: task_topology_spread_constraints
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Affinity
         path: affinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Web Affinity
+        path: web_affinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Affinity
+        path: task_affinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -619,6 +933,11 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Postgres Priority Class
         path: postgres_priority_class
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Termination Grace Period Seconds
+        path: termination_grace_period_seconds
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -633,8 +952,33 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Annotations
+        path: task_annotations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Web Annotations
+        path: web_annotations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Postgres Annotations
+        path: postgres_annotations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Tolerations
         path: tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Web Tolerations
+        path: web_tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Task Tolerations
+        path: task_tolerations
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -648,8 +992,18 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - displayName: API Extra Settings
+      - displayName: Receptor Log Level
+        path: receptor_log_level
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Extra Settings
         path: extra_settings
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Extra Settings Files
+        path: extra_settings_files
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -687,6 +1041,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Init Projects Container image to use
+        displayName: Init Projects Container Image
+        path: init_projects_container_image
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Secret where can be found the trusted Certificate Authority Bundle
         path: bundle_cacert_secret
         x-descriptors:
@@ -707,11 +1067,94 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Additional labels defined on the resource, which should be propagated
+          to child resources
+        path: additional_labels
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Disable IPv6 listener?
         path: ipv6_disabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Metrics-Utility Enabled
+        path: metrics_utility_enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Metrics-Utility Image
+        path: metrics_utility_image
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Image Version
+        path: metrics_utility_image_version
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Image PullPolicy
+        path: metrics_utility_image_pull_policy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility ConfigMap
+        path: metrics_utility_configmap
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Secret
+        path: metrics_utility_secret
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Gather Data CronJob Schedule
+        path: metrics_utility_cronjob_gather_schedule
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Report CronJob Schedule
+        path: metrics_utility_cronjob_report_schedule
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Ship Target
+        path: metrics_utility_ship_target
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility PVC Claim
+        path: metrics_utility_pvc_claim
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility PVC Claim Size
+        path: metrics_utility_pvc_claim_size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:text
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility PVC Claim Storage Class
+        path: metrics_utility_pvc_claim_storage_class
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:io.kubernetes:StorageClass
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
+      - displayName: Metrics-Utility Enabled Shipping to Red Hat Hybrid Cloud Console
+        path: metrics_utility_console_enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:metrics_utility_enabled:true
       statusDescriptors:
       - description: Route to access the instance deployed
         displayName: URL
@@ -787,7 +1230,7 @@ spec:
   - email: awx-project@googlegroups.com
     name: AWX Team
   maturity: alpha
-  MinKubeVersion: 1.22.15
+  minKubeVersion: 1.22.15
   provider:
     name: Ansible
     url: github.com/ansible/awx-operator

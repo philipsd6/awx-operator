@@ -5,16 +5,12 @@ metadata:
   name: {{ ansible_operator_meta.name }}-db-management
   namespace: {{ backup_pvc_namespace }}
   labels:
-    app.kubernetes.io/name: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/part-of: '{{ ansible_operator_meta.name }}'
-    app.kubernetes.io/managed-by: '{{ deployment_type }}-operator'
-    app.kubernetes.io/component: '{{ deployment_type }}'
-    app.kubernetes.io/operator-version: '{{ lookup("env", "OPERATOR_VERSION") }}'
+    {{ lookup("template", "../common/templates/labels/common.yaml.j2") | indent(width=4) | trim }}
 spec:
   containers:
   - name: {{ ansible_operator_meta.name }}-db-management
     image: "{{ _postgres_image }}"
-    imagePullPolicy: Always
+    imagePullPolicy: "{{ image_pull_policy }}"
     command: ["sleep", "infinity"]
     volumeMounts:
     - name: {{ ansible_operator_meta.name }}-backup
@@ -24,6 +20,10 @@ spec:
     resources:
       {{ backup_resource_requirements | to_nice_yaml(indent=2) | indent(width=6, first=False) }}
 {%- endif %}
+{% if db_management_pod_node_selector %}
+  nodeSelector:
+        {{ db_management_pod_node_selector | indent(width=8) }}
+{% endif %}
   volumes:
     - name: {{ ansible_operator_meta.name }}-backup
       persistentVolumeClaim:

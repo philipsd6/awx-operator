@@ -54,8 +54,8 @@ spec:
                 description: Username to use for the admin account
                 type: string
                 default: admin
-              hostname:
-                description: The hostname of the instance
+              hostname:  # deprecated
+                description: (Deprecated) The hostname of the instance
                 type: string
               admin_email:
                 description: The admin user email
@@ -63,11 +63,18 @@ spec:
               admin_password_secret:
                 description: Secret where the admin password can be found
                 type: string
+                maxLength: 255
+                pattern: '^[a-zA-Z0-9][-a-zA-Z0-9]{0,253}[a-zA-Z0-9]$'
               postgres_configuration_secret:
                 description: Secret where the database configuration can be found
                 type: string
               old_postgres_configuration_secret:
                 description: Secret where the old database configuration can be found for data migration
+                type: string
+                maxLength: 255
+                pattern: '^[a-zA-Z0-9][-a-zA-Z0-9]{0,253}[a-zA-Z0-9]$'
+              pg_dump_suffix:
+                description: Additional parameters for the pg_dump command during a migration
                 type: string
               postgres_label_selector:
                 description: Label selector used to identify postgres pod for data migration
@@ -75,9 +82,13 @@ spec:
               secret_key_secret:
                 description: Secret where the secret key can be found
                 type: string
+                maxLength: 255
+                pattern: '^[a-zA-Z0-9][-a-zA-Z0-9]{0,253}[a-zA-Z0-9]$'
               broadcast_websocket_secret:
                 description: Secret where the broadcast websocket secret can be found
                 type: string
+                maxLength: 255
+                pattern: '^[a-zA-Z0-9][-a-zA-Z0-9]{0,253}[a-zA-Z0-9]$'
               extra_volumes:
                 description: Specify extra volumes to add to the application pod
                 type: string
@@ -115,11 +126,29 @@ spec:
               ingress_annotations:
                 description: Annotations to add to the Ingress Controller
                 type: string
-              ingress_tls_secret:
-                description: Secret where the Ingress TLS secret can be found
+              ingress_tls_secret:  # deprecated
+                description: (Deprecated) Secret where the Ingress TLS secret can be found
                 type: string
               ingress_class_name:
                 description: The name of ingress class to use instead of the cluster default.
+                type: string
+              ingress_hosts:
+                description: Ingress hostnames of the instance
+                type: array
+                items:
+                  type: object
+                  properties:
+                    hostname:
+                      description: Hostname of the instance
+                      type: string
+                    tls_secret:
+                      description: Secret where the Ingress TLS secret can be found
+                      type: string
+              ingress_controller:
+                description: Special configuration for specific Ingress Controllers
+                type: string
+              api_urlpattern_prefix:
+                description: An optional configuration to add a prefix in the API URL path
                 type: string
               loadbalancer_protocol:
                 description: Protocol to use for the loadbalancer
@@ -132,6 +161,14 @@ spec:
                 description: Port to use for the loadbalancer
                 type: integer
                 default: 80
+              loadbalancer_ip:
+                description: Assign LoadBalancer IP address
+                type: string
+                default: ''
+              loadbalancer_class:
+                description: Class of LoadBalancer to use
+                type: string
+                default: ''
               route_host:
                 description: The DNS to use to points to the instance
                 type: string
@@ -153,12 +190,51 @@ spec:
               nodeport_port:
                 description: Port to use for the nodeport
                 type: integer
-                default: 30080
               node_selector:
                 description: nodeSelector for the pods
                 type: string
+              web_node_selector:
+                description: nodeSelector for the web pods
+                type: string
+              task_node_selector:
+                description: nodeSelector for the task pods
+                type: string
               topology_spread_constraints:
                 description: topology rule(s) for the pods
+                type: string
+              task_topology_spread_constraints:
+                description: topology rule(s) for the task pods
+                type: string
+              web_topology_spread_constraints:
+                description: topology rule(s) for the web pods
+                type: string
+              termination_grace_period_seconds:
+                description: Optional duration in seconds pods needs to terminate gracefully
+                type: integer
+                format: int32
+              service_labels:
+                description: Additional labels to apply to the service
+                type: string
+              annotations:
+                description: Common annotations for both Web and Task deployments.
+                type: string
+              task_annotations:
+                description: Task deployment annotations. This will override the general annotations parameter for the Task deployment.
+                type: string
+              web_annotations:
+                description: Web deployment annotations. This will override the general annotations parameter for the Web deployment.
+                type: string
+              postgres_annotations:
+                description: Annotations to add to the Postgres deployment.
+                type: string
+              tolerations:
+                description: node tolerations for the pods
+                type: string
+              task_tolerations:
+                description: node tolerations for the task pods
+                type: string
+              web_tolerations:
+                description: node tolerations for the web pods
                 type: string
               affinity:
                 description: If specified, the pod's scheduling constraints
@@ -526,15 +602,738 @@ spec:
                         type: array
                     type: object
                 type: object
-              service_labels:
-                description: Additional labels to apply to the service
-                type: string
-              annotations:
-                description: annotations for the pods
-                type: string
-              tolerations:
-                description: node tolerations for the pods
-                type: string
+              web_affinity:
+                description: If specified, the pod's scheduling constraints
+                properties:
+                  nodeAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            preference:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchFields:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - preference
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        properties:
+                          nodeSelectorTerms:
+                            items:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchFields:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
+                        required:
+                        - nodeSelectorTerms
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  podAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            podAffinityTerm:
+                              properties:
+                                labelSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaceSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaces:
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - podAffinityTerm
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            labelSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaceSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              items:
+                                type: string
+                              type: array
+                            topologyKey:
+                              type: string
+                          required:
+                          - topologyKey
+                          type: object
+                        type: array
+                    type: object
+                  podAntiAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            podAffinityTerm:
+                              properties:
+                                labelSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaceSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaces:
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - podAffinityTerm
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            labelSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaceSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              items:
+                                type: string
+                              type: array
+                            topologyKey:
+                              type: string
+                          required:
+                          - topologyKey
+                          type: object
+                        type: array
+                    type: object
+                type: object
+              task_affinity:
+                description: If specified, the pod's scheduling constraints
+                properties:
+                  nodeAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            preference:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchFields:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - preference
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        properties:
+                          nodeSelectorTerms:
+                            items:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchFields:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            type: array
+                        required:
+                        - nodeSelectorTerms
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  podAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            podAffinityTerm:
+                              properties:
+                                labelSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaceSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaces:
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - podAffinityTerm
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            labelSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaceSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              items:
+                                type: string
+                              type: array
+                            topologyKey:
+                              type: string
+                          required:
+                          - topologyKey
+                          type: object
+                        type: array
+                    type: object
+                  podAntiAffinity:
+                    properties:
+                      preferredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            podAffinityTerm:
+                              properties:
+                                labelSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaceSelector:
+                                  properties:
+                                    matchExpressions:
+                                      items:
+                                        properties:
+                                          key:
+                                            type: string
+                                          operator:
+                                            type: string
+                                          values:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                namespaces:
+                                  items:
+                                    type: string
+                                  type: array
+                                topologyKey:
+                                  type: string
+                              required:
+                              - topologyKey
+                              type: object
+                            weight:
+                              format: int32
+                              type: integer
+                          required:
+                          - podAffinityTerm
+                          - weight
+                          type: object
+                        type: array
+                      requiredDuringSchedulingIgnoredDuringExecution:
+                        items:
+                          properties:
+                            labelSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaceSelector:
+                              properties:
+                                matchExpressions:
+                                  items:
+                                    properties:
+                                      key:
+                                        type: string
+                                      operator:
+                                        type: string
+                                      values:
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespaces:
+                              items:
+                                type: string
+                              type: array
+                            topologyKey:
+                              type: string
+                          required:
+                          - topologyKey
+                          type: object
+                        type: array
+                    type: object
+                type: object
               image:
                 description: Registry path to the application container to use
                 type: string
@@ -579,6 +1378,18 @@ spec:
               image_pull_secret:  # deprecated
                 description: (Deprecated) Image pull secret for app and database containers
                 type: string
+              host_aliases:
+                description: HostAliases for app containers
+                type: array
+                items:
+                  type: object
+                  properties:
+                    ip:
+                      type: string
+                    hostnames:
+                      type: array
+                      items:
+                        type: string
               task_resource_requirements:
                 description: Resource requirements for the task container
                 properties:
@@ -590,6 +1401,8 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                   limits:
                     properties:
@@ -598,6 +1411,8 @@ spec:
                       memory:
                         type: string
                       storage:
+                        type: string
+                      ephemeral-storage:
                         type: string
                     type: object
                 type: object
@@ -612,6 +1427,8 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                   limits:
                     properties:
@@ -620,6 +1437,8 @@ spec:
                       memory:
                         type: string
                       storage:
+                        type: string
+                      ephemeral-storage:
                         type: string
                     type: object
                 type: object
@@ -634,6 +1453,8 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                   limits:
                     properties:
@@ -643,10 +1464,12 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                 type: object
               postgres_init_container_resource_requirements:
-                description: Resource requirements for the postgres init container
+                description: (Deprecated, use postgres_resource_requirements parameter) Resource requirements for the postgres init container
                 properties:
                   requests:
                     properties:
@@ -678,6 +1501,8 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                   limits:
                     properties:
@@ -687,6 +1512,60 @@ spec:
                         type: string
                       storage:
                         type: string
+                      ephemeral-storage:
+                        type: string
+                    type: object
+                type: object
+              rsyslog_resource_requirements:
+                description: Resource requirements for the rsyslog container
+                properties:
+                  requests:
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                      storage:
+                        type: string
+                      ephemeral-storage:
+                        type: string
+                    type: object
+                  limits:
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                      storage:
+                        type: string
+                      ephemeral-storage:
+                        type: string
+                    type: object
+                type: object
+              init_container_resource_requirements:
+                description: Resource requirements for the init container
+                properties:
+                  requests:
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                      storage:
+                        type: string
+                      ephemeral-storage:
+                        type: string
+                    type: object
+                  limits:
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                      storage:
+                        type: string
+                      ephemeral-storage:
+                        type: string
                     type: object
                 type: object
               service_account_annotations:
@@ -694,6 +1573,102 @@ spec:
                 type: string
               replicas:
                 description: Number of instance replicas
+                type: integer
+                default: 1
+                format: int32
+              web_replicas:
+                description: Number of web instance replicas
+                type: integer
+                format: int32
+              web_manage_replicas:
+                description: Enables operator control of replicas count for the web deployment when set to 'true'
+                type: boolean
+                default: true
+              task_replicas:
+                description: Number of task instance replicas
+                type: integer
+                format: int32
+              task_manage_replicas:
+                description: Enables operator control of replicas count for the task deployment when set to 'true'
+                type: boolean
+                default: true
+              web_liveness_initial_delay:
+                description: Initial delay before starting liveness checks on web pod
+                type: integer
+                default: 5
+                format: int32
+              task_liveness_initial_delay:
+                description: Initial delay before starting liveness checks on task pod
+                type: integer
+                default: 5
+                format: int32
+              web_liveness_period:
+                description: Time period in seconds between each liveness check for the web pod
+                type: integer
+                default: 0
+                format: int32
+              task_liveness_period:
+                description: Time period in seconds between each liveness check for the task pod
+                type: integer
+                default: 0
+                format: int32
+              web_liveness_failure_threshold:
+                description: Number of consecutive failure events to identify failure of web pod
+                type: integer
+                default: 3
+                format: int32
+              task_liveness_failure_threshold:
+                description: Number of consecutive failure events to identify failure of task pod
+                type: integer
+                default: 3
+                format: int32
+              web_liveness_timeout:
+                description: Number of seconds to wait for a probe response from web pod
+                type: integer
+                default: 1
+                format: int32
+              task_liveness_timeout:
+                description: Number of seconds to wait for a probe response from task pod
+                type: integer
+                default: 1
+                format: int32
+              web_readiness_initial_delay:
+                description: Initial delay before starting readiness checks on web pod
+                type: integer
+                default: 20
+                format: int32
+              task_readiness_initial_delay:
+                description: Initial delay before starting readiness checks on task pod
+                type: integer
+                default: 20
+                format: int32
+              web_readiness_period:
+                description: Time period in seconds between each readiness check for the web pod
+                type: integer
+                default: 0
+                format: int32
+              task_readiness_period:
+                description: Time period in seconds between each readiness check for the task pod
+                type: integer
+                default: 0
+                format: int32
+              web_readiness_failure_threshold:
+                description: Number of consecutive failure events to identify failure of web pod
+                type: integer
+                default: 3
+                format: int32
+              task_readiness_failure_threshold:
+                description: Number of consecutive failure events to identify failure of task pod
+                type: integer
+                default: 3
+                format: int32
+              web_readiness_timeout:
+                description: Number of seconds to wait for a probe response from web pod
+                type: integer
+                default: 1
+                format: int32
+              task_readiness_timeout:
+                description: Number of seconds to wait for a probe response from task pod
                 type: integer
                 default: 1
                 format: int32
@@ -721,9 +1696,19 @@ spec:
                 type: array
                 items:
                   type: string
+              rsyslog_args:
+                type: array
+                items:
+                  type: string
+              rsyslog_command:
+                type: array
+                items:
+                  type: string
               task_extra_env:
                 type: string
               web_extra_env:
+                type: string
+              rsyslog_extra_env:
                 type: string
               ee_extra_env:
                 type: string
@@ -735,6 +1720,30 @@ spec:
                 type: string
               web_extra_volume_mounts:
                 description: Specify volume mounts to be added to the Web container
+                type: string
+              postgres_extra_volume_mounts:
+                description: Specify volume mounts to be added to Postgres container
+                type: string
+              uwsgi_processes:
+                description: Set the number of uwsgi processes to run in a web container
+                type: integer
+              uwsgi_listen_queue_size:
+                description: Set the socket listen queue size for uwsgi
+                type: integer
+              nginx_worker_processes:
+                description: Set the number of workers for nginx
+                type: integer
+              nginx_worker_connections:
+                description: Set the number of connections per worker for nginx
+                type: integer
+              nginx_worker_cpu_affinity:
+                description: Set the CPU affinity for nginx workers
+                type: string
+              nginx_listen_queue_size:
+                description: Set the socket listen queue size for nginx (defaults to same as uwsgi)
+                type: integer
+              rsyslog_extra_volume_mounts:
+                description: Specify volume mounts to be added to the Rsyslog container
                 type: string
               redis_image:
                 description: Registry path to the redis container to use
@@ -758,6 +1767,9 @@ spec:
                 type: string
               init_container_extra_volume_mounts:
                 description: Specify volume mounts to be added to the init container
+                type: string
+              init_projects_container_image:
+                description: Registry path to the init projects container to use
                 type: string
               postgres_image:
                 description: Registry path to the PostgreSQL container to use
@@ -812,24 +1824,49 @@ spec:
               postgres_priority_class:
                 description: Assign a preexisting priority class to the postgres pod
                 type: string
-              postgres_data_path:
-                description: Path where the PostgreSQL data are located
-                type: string
               postgres_extra_args:
                 type: array
                 items:
                   type: string
+              postgres_data_volume_init:
+                description: Sets permissions on the /var/lib/pgdata/data for postgres container using an init container (not Openshift)
+                type: boolean
+              postgres_init_container_commands:
+                description: Customize the postgres init container commands (Non Openshift)
+                type: string
+              postgres_extra_volumes:
+                description: Specify extra volumes to add to the application pod
+                type: string
+              postgres_keepalives:
+                description: Controls whether client-side TCP keepalives are used for Postgres connections.
+                default: true
+                type: boolean
+              postgres_keepalives_count:
+                description: Controls the number of TCP keepalives that can be lost before the client's connection to the server is considered dead.
+                type: integer
+                default: 5
+                format: int32
+              postgres_keepalives_idle:
+                description: Controls the number of seconds of inactivity after which TCP should send a keepalive message to the server.
+                type: integer
+                default: 5
+                format: int32
+              postgres_keepalives_interval:
+                description: Controls the number of seconds after which a TCP keepalive message that is not acknowledged by the server should be retransmitted.
+                type: integer
+                default: 5
+                format: int32
               ca_trust_bundle:
                 description: Path where the trusted CA bundle is available
                 type: string
               development_mode:
                 description: If the deployment should be done in development mode
                 type: boolean
-              ldap_cacert_secret:
-                description: Secret where can be found the LDAP trusted Certificate Authority Bundle
+              ldap_cacert_secret:  # deprecated
+                description: (Deprecated) Secret where can be found the LDAP trusted Certificate Authority Bundle
                 type: string
-              ldap_password_secret:
-                description: Secret where can be found the LDAP bind password
+              ldap_password_secret:  # deprecated
+                description: (Deprecated) Secret where can be found the LDAP bind password
                 type: string
               bundle_cacert_secret:
                 description: Secret where can be found the trusted Certificate Authority Bundle
@@ -864,8 +1901,15 @@ spec:
               session_cookie_secure:
                 description: Set session cookie secure mode for web
                 type: string
+              postgres_security_context_settings:
+                description: Key/values that will be set under the pod-level securityContext field
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              receptor_log_level:
+                description: Set log level of receptor service
+                type: string
               extra_settings:
-                description: Extra settings to specify for the API
+                description: Extra settings to specify for AWX
                 items:
                   properties:
                     setting:
@@ -874,6 +1918,28 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
                 type: array
+              extra_settings_files:
+                description: Extra ConfigMaps or Secrets of settings files to specify for AWX
+                properties:
+                  configmaps:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                      type: object
+                    type: array
+                  secrets:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        key:
+                          type: string
+                      type: object
+                    type: array
+                type: object
               no_log:
                 description: Configure no_log for no_log tasks
                 type: boolean
@@ -890,10 +1956,62 @@ spec:
                 description: Maintain some of the recommended `app.kubernetes.io/*` labels on the resource (self)
                 type: boolean
                 default: true
+              additional_labels:
+                description: Additional labels defined on the resource, which should be propagated to child resources
+                type: array
+                items:
+                  type: string
               ipv6_disabled:
                 description: Disable web container's nginx ipv6 listener
                 type: boolean
                 default: false
+              metrics_utility_enabled:
+                description: Enable metrics utility
+                type: boolean
+                default: false
+              metrics_utility_image:
+                description: Metrics-Utility Image
+                type: string
+              metrics_utility_image_version:
+                description: Metrics-Utility Image Version
+                type: string
+              metrics_utility_image_pull_policy:
+                description: Metrics-Utility Image PullPolicy
+                type: string
+              metrics_utility_configmap:
+                description: Metrics-Utility ConfigMap
+                type: string
+              metrics_utility_secret:
+                description: Metrics-Utility Secret
+                type: string
+              metrics_utility_cronjob_gather_schedule:
+                description: Metrics-Utility Gather Data CronJob Schedule
+                type: string
+                default: '@hourly'
+              metrics_utility_cronjob_report_schedule:
+                description: Metrics-Utility Report CronJob Schedule
+                type: string
+                default: '@monthly'
+              metrics_utility_ship_target:
+                description: Metrics-Utility Ship Target
+                type: string
+              metrics_utility_pvc_claim:
+                description: Metrics-Utility PVC Claim
+                type: string
+              metrics_utility_pvc_claim_size:
+                description: Metrics-Utility PVC Claim Size
+                type: string
+                default: 5Gi
+              metrics_utility_pvc_claim_storage_class:
+                description: Metrics-Utility PVC Claim Storage Class
+                type: string
+              metrics_utility_console_enabled:
+                description: Enable metrics utility shipping to Red Hat Hybrid Cloud Console
+                type: boolean
+                default: false
+              public_base_url:
+                description: Public base URL
+                type: string
             type: object
           status:
             properties:
@@ -926,6 +2044,9 @@ spec:
                 type: string
               image:
                 description: URL of the image used for the deployed instance
+                type: string
+              upgradedFrom:
+                description: Last gated version
                 type: string
               conditions:
                 description: The resulting conditions when a Service Telemetry is instantiated

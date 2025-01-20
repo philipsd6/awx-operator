@@ -39,12 +39,14 @@ spec:
           spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
+            required:
+            - deployment_name
             properties:
               backup_source:
                 description: Backup source
                 type: string
                 enum:
-                - CR
+                - Backup CR
                 - PVC
               deployment_name:
                 description: Name of the restored deployment. This should be different from the original deployment name
@@ -92,14 +94,42 @@ spec:
               postgres_image_version:
                 description: PostgreSQL container image version to use
                 type: string
+              spec_overrides:
+                description: Overrides for the AWX spec
+                # type: string
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              image_pull_policy:
+                description: The image pull policy
+                type: string
+                default: IfNotPresent
+                enum:
+                - Always
+                - always
+                - Never
+                - never
+                - IfNotPresent
+                - ifnotpresent
+              db_management_pod_node_selector:
+                description: nodeSelector for the Postgres pods to backup
+                type: string
               no_log:
                 description: Configure no_log for no_log tasks
                 type: boolean
                 default: true
+              additional_labels:
+                description: Additional labels defined on the resource, which should be propagated to child resources
+                type: array
+                items:
+                  type: string
               set_self_labels:
                 description: Maintain some of the recommended `app.kubernetes.io/*` labels on the resource (self)
                 type: boolean
                 default: true
+              force_drop_db:
+                description: Force drop the database before restoring. USE WITH CAUTION!
+                type: boolean
+                default: false
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true
